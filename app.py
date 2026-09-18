@@ -58,7 +58,7 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
         .replace("%", "\\%")
     )
 
-    # 3. Filtro FFmpeg optimizado a 720x1280 vertical (rápido y nítido para móvil)
+    # 3. Filtro FFmpeg optimizado a 720x1280 vertical
     font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     
     filter_complex = (
@@ -71,6 +71,7 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
 
     cmd = [
         "ffmpeg", "-y",
+        "-stream_loop", "-1",
         "-t", str(data.duration),
         "-i", input_video,
         "-f", "lavfi", "-t", str(data.duration), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",

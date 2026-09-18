@@ -43,7 +43,7 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error descargando vídeo: {str(e)}")
 
-    # 2. Formatear y envolver texto (limpieza de caracteres para drawtext)
+    # 2. Formatear y envolver texto (escapado seguro para drawtext)
     wrapped_hook = "\n".join(textwrap.wrap(data.hook_text, width=28))
     clean_hook = (
         wrapped_hook.replace("\\", "\\\\")
@@ -58,9 +58,7 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
         .replace("%", "\\%")
     )
 
-    # 3. Filtro FFmpeg optimizado para bajo consumo de RAM:
-    # - Usa LiberationSans-Bold instalada en el sistema
-    # - preset 'ultrafast' con límites de hilos para no saturar memoria
+    # 3. Filtro FFmpeg optimizado a 1080x1920 nativo
     font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     
     filter_complex = (
@@ -81,8 +79,9 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
         "-map", "1:a",
         "-c:v", "libx264",
         "-preset", "ultrafast",
-        "-threads", "1",
-        "-crf", "24",
+        "-threads", "2",
+        "-crf", "26",
+        "-tune", "zerolatency",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "96k",

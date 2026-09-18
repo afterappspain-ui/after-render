@@ -12,7 +12,7 @@ app = FastAPI(title="AFTER Video Renderer")
 class RenderRequest(BaseModel):
     video_url: str
     hook_text: str
-    cta_text: str = "Entra a AFTER y liga en directo en la discoteca 🔥"
+    cta_text: str = "Entra a AFTER y liga en directo en la discoteca"
     duration: int = 11
 
 def cleanup_files(*files):
@@ -58,14 +58,14 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
         .replace("%", "\\%")
     )
 
-    # 3. Filtro FFmpeg optimizado a 1080x1920 nativo
+    # 3. Filtro FFmpeg optimizado a 720x1280 vertical (rápido y nítido para móvil)
     font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     
     filter_complex = (
-        f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-        f"drawtext=fontfile='{font_path}':text='{clean_hook}':fontcolor=white:fontsize=52:borderw=5:bordercolor=black:"
-        f"x=(w-text_w)/2:y=h*0.16:line_spacing=15,"
-        f"drawtext=fontfile='{font_path}':text='{clean_cta}':fontcolor=0x00FFA3:fontsize=42:borderw=4:bordercolor=black:"
+        f"[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,"
+        f"drawtext=fontfile='{font_path}':text='{clean_hook}':fontcolor=white:fontsize=36:borderw=4:bordercolor=black:"
+        f"x=(w-text_w)/2:y=h*0.16:line_spacing=12,"
+        f"drawtext=fontfile='{font_path}':text='{clean_cta}':fontcolor=0x00FFA3:fontsize=28:borderw=3:bordercolor=black:"
         f"x=(w-text_w)/2:y=h*0.82[v]"
     )
 
@@ -98,5 +98,5 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
     return FileResponse(
         output_video,
         media_type="video/mp4",
-        filename="video_after_1080p.mp4"
+        filename="video_after_720p.mp4"
     )

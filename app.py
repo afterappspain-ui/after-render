@@ -33,27 +33,41 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
     input_video = f"/tmp/input_{job_id}.mp4"
     output_video = f"/tmp/output_{job_id}.mp4"
 
-    # 1. Descargar vídeo de Pexels
+    # 1. Descargar vídeo original de Pexels
     try:
         r = requests.get(data.video_url, timeout=40, stream=True)
         r.raise_for_status()
         with open(input_video, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
+            for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error descargando vídeo: {str(e)}")
 
-    # 2. Formatear texto
-    wrapped_hook = "\n".join(textwrap.wrap(data.hook_text, width=30))
-    clean_hook = wrapped_hook.replace("'", "\u2019").replace(":", "\\:").replace("%", "\\%")
-    clean_cta = data.cta_text.replace("'", "\u2019").replace(":", "\\:").replace("%", "\\%")
+    # 2. Formatear y envolver texto (limpieza de caracteres para drawtext)
+    wrapped_hook = "\n".join(textwrap.wrap(data.hook_text, width=28))
+    clean_hook = (
+        wrapped_hook.replace("\\", "\\\\")
+        .replace("'", "\u2019")
+        .replace(":", "\\:")
+        .replace("%", "\\%")
+    )
+    clean_cta = (
+        data.cta_text.replace("\\", "\\\\")
+        .replace("'", "\u2019")
+        .replace(":", "\\:")
+        .replace("%", "\\%")
+    )
 
-    # 3. Filtro FFmpeg a 1080x1920 nativo con bordes negros sólidos y audio silencioso
+    # 3. Filtro FFmpeg optimizado para bajo consumo de RAM:
+    # - Usa LiberationSans-Bold instalada en el sistema
+    # - preset 'ultrafast' con límites de hilos para no saturar memoria
+    font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+    
     filter_complex = (
         f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-        f"drawtext=text='{clean_hook}':fontcolor=white:fontsize=52:borderw=5:bordercolor=black:"
+        f"drawtext=fontfile='{font_path}':text='{clean_hook}':fontcolor=white:fontsize=52:borderw=5:bordercolor=black:"
         f"x=(w-text_w)/2:y=h*0.16:line_spacing=15,"
-        f"drawtext=text='{clean_cta}':fontcolor=0x00FFA3:fontsize=42:borderw=4:bordercolor=black:"
+        f"drawtext=fontfile='{font_path}':text='{clean_cta}':fontcolor=0x00FFA3:fontsize=42:borderw=4:bordercolor=black:"
         f"x=(w-text_w)/2:y=h*0.82[v]"
     )
 
@@ -67,17 +81,18 @@ def render_video(data: RenderRequest, background_tasks: BackgroundTasks):
         "-map", "1:a",
         "-c:v", "libx264",
         "-preset", "ultrafast",
-        "-crf", "22",
+        "-threads", "1",
+        "-crf", "24",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", "96k",
         output_video
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         cleanup_files(input_video, output_video)
-        raise HTTPException(status_code=500, detail=f"Error FFmpeg: {result.stderr[-200:]}")
+        raise HTTPException(status_code=500, detail=f"FFmpeg falló: {result.stderr[-300:]}")
 
     background_tasks.add_task(cleanup_files, input_video, output_video)
 
